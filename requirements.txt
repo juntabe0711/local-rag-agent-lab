@@ -1,0 +1,26 @@
+# PyTorch は GPU に合わせて先に入れる (https://pytorch.org/get-started/locally/)
+#   例: pip install torch --index-url https://download.pytorch.org/whl/cu128
+torch>=2.3
+sentence-transformers>=3.0
+transformers>=4.44
+faiss-cpu>=1.8
+numpy>=1.26
+pyyaml>=6.0
+requests>=2.31
+python-dotenv>=1.0
+charset-normalizer>=3.3
+tqdm>=4.66
+
+# 文書の抽出
+pypdf>=4.0
+python-docx>=1.1
+openpyxl>=3.1
+python-pptx>=0.6.23
+
+# Web アプリ・エージェント
+fastapi>=0.110
+uvicorn[standard]>=0.29
+matplotlib>=3.8
+
+# テスト
+pytest>=8.0

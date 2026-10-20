@@ -1,0 +1,98 @@
+# local-rag-agent-lab の設定。相対パスはこのファイルのフォルダ基準
+# (data_root 配下のものは data_root 基準)。よく変える項目は README の「設定」。
+
+paths:
+  # 索引・状態 DB・評価の質問集・ログ・エージェント用 DB を置く場所。
+  # 環境変数 RAG_DATA_ROOT があればそちらが優先 (同期フォルダの外に置きたいとき)。
+  data_root: "./data"
+
+# ── 埋め込みモデル ────────────────────────────────────────────────────────
+model:
+  name_or_path: "BAAI/bge-m3"     # Hugging Face 名 または ローカルフォルダ
+  device: "cuda"                  # GPU が無ければ自動で cpu
+  fp16: true
+  batch_size: 32
+  max_seq_length: 1024            # 入力をこのトークン数で切る (bge-m3 は最大 8192)
+  normalize_embeddings: true      # 内積 = コサイン類似度にするため必須
+
+# ── 取り込む文書 ──────────────────────────────────────────────────────────
+target:
+  folders:
+    - "./data/corpus"             # scripts/fetch_wikipedia.py の出力 (公開データ)
+    - "./sample_docs"             # 架空の工場の文書 (エージェントのデモ用)
+  include_extensions: [".txt", ".md", ".csv", ".json", ".html", ".pdf", ".docx", ".xlsx", ".pptx", ".ipynb"]
+  exclude_dirs: [".git", "__pycache__", ".venv", "node_modules", ".ipynb_checkpoints"]
+  max_file_size_mb: 200
+
+# ── チャンク分割 (埋め込みモデル自身のトークナイザで数える) ──────────────────
+chunking:
+  chunk_size: 512
+  chunk_overlap: 64
+
+# ── 検索 (2 段: 密検索 → リランク) ────────────────────────────────────────
+retrieval:
+  candidates: 200                 # リランク前に FAISS から取る候補数
+  min_score: null                 # 最終スコアの下限 (リランク後は 0..1)。null = 無効
+  reranker:
+    enabled: true
+    name_or_path: "BAAI/bge-reranker-v2-m3"
+    batch_size: 32
+    max_length: 1024
+    fp16: true
+  mmr:
+    enabled: false                # 近い重複を散らす。リランカーがあれば通常は不要
+    lambda: 0.65
+
+# ── ベクトル索引 (FAISS) ──────────────────────────────────────────────────
+vector_db:
+  path: "vector_db"               # data_root 基準
+  index_type: "flat_sq8"          # flat (fp32) / flat_fp16 / flat_sq8 (8bit, 学習あり)
+  train_size: 262144              # flat_sq8 の量子化を学習する件数 (少なければ全件)
+
+processing:
+  embed_batch_chunks: 2048        # この件数たまったら埋め込んで書き込む
+  state_db: "vector_db/state.sqlite"
+
+# ── LLM ───────────────────────────────────────────────────────────────────
+#   api: ollama → Ollama のネイティブ API (base_url は http://localhost:11434)。num_ctx・think を渡せる
+#   api: openai → OpenAI 互換 (vLLM なら base_url: http://localhost:8000/v1)
+llm:
+  api: "ollama"
+  base_url: "http://localhost:11434"
+  model: "qwen3:4b"               # GPU 8GB で埋め込み・リランクと同居できる大きさ。12GB 以上なら qwen3:8b
+  agent_model: ""                 # エージェント用に別モデルを使うとき (空 = model と同じ)
+  api_key_env: "LLM_API_KEY"      # キーが要るサーバのときだけ .env に書く
+  timeout: 600
+  num_ctx: 16384                  # 文脈長。プロンプトを詰める予算にも使う (サーバの上限以下にする)
+  think: null                     # 推論モデルの思考 on/off (ollama のみ)。null = モデルの既定
+  est_chars_per_token: 1.5        # 文字数 → トークン数の概算
+  extra_body: {}                  # サーバ固有の追加パラメータ (例: vLLM に {"reasoning_effort": "low"})
+  rag_top_k: 5                    # チャットで LLM に渡すヒット数
+  num_predict: 8192               # チャットの出力上限 (推論モデルは思考も含む)
+  system_prompt: |
+    あなたは文書検索アシスタントです。日本語で、正確かつ簡潔に答えてください。
+    根拠にした文書の番号を [1] のように示してください。
+
+# ── 検索精度の評価 (scripts/eval_rag.py) ──────────────────────────────────
+rag_eval:
+  golden: "eval/golden_v1.jsonl"  # data_root 基準。作り直すときは別名に (過去の結果と比べられなくなる)
+  top_k: 10
+  db: "eval/rag_eval.sqlite"
+  csv: "logs/rag_eval.csv"
+
+# ── エージェント (文書検索 + 読み取り専用 SQL + グラフ) ─────────────────────
+agent:
+  db_path: "factory.sqlite"       # data_root 基準。scripts/make_sample_db.py が作る
+  descriptions: "./sample_db/descriptions.json"   # 表・列の説明 (手書き)
+  max_steps: 8
+  cause_max_steps: 12             # 「原因は？」系の質問の手数
+  obs_chars: 3500                 # 1 手の観測を LLM に返す上限 (文字)
+  step_predict: 6144              # 1 手の出力上限。ローカルの推論モデル (qwen3 等) は思考に 2〜4 千トークン使う
+  num_predict: 8192               # 最終回答の出力上限。推論モデルは思考もここを使うので小さくしない
+  query_timeout_sec: 20
+  max_rows: 50
+  chart_max_rows: 5000
+
+web:
+  host: "127.0.0.1"
+  port: 8000

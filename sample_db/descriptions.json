@@ -1,0 +1,45 @@
+{
+  "tables": {
+    "products": {
+      "description": "製品の一覧と、1 枚あたり LPD (45nm 以上) の上限",
+      "columns": {"product_code": "製品コード", "diameter_mm": "直径 (mm)", "grade": "品種 prime/epi/test",
+                  "spec_lpd_max": "1 枚あたり LPD (45nm 以上) の上限 (個)。超えると NG"}
+    },
+    "equipment": {
+      "description": "装置の一覧。process は担当工程 (slicing / lapping / polishing / cleaning / inspection)",
+      "columns": {"equipment_id": "装置 ID (例 POL-03)", "process": "工程", "model": "機種", "installed_on": "導入日"}
+    },
+    "lots": {
+      "description": "ロット (25 枚単位)。製品・投入日時・出荷日",
+      "columns": {"lot_id": "ロット番号", "product_code": "製品コード (products)", "wafer_count": "枚数",
+                  "started_at": "投入日時", "shipped_on": "出荷日 (未出荷は NULL)"}
+    },
+    "process_history": {
+      "description": "ロットが各工程でどの装置をいつ通ったか (工程履歴)。装置別の比較に使う",
+      "columns": {"lot_id": "ロット番号", "step_no": "工程順 1〜5", "process": "工程", "equipment_id": "使った装置",
+                  "start_time": "開始日時", "end_time": "終了日時"}
+    },
+    "inspection_results": {
+      "description": "最終検査の結果 (1 行 = 1 枚)。LPD・平坦度・金属汚染と判定",
+      "columns": {"lot_id": "ロット番号", "wafer_no": "ウェーハ番号 1〜25", "inspected_at": "検査日時",
+                  "lpd_45nm": "45nm 以上のパーティクル数 (個/枚)", "lpd_65nm": "65nm 以上のパーティクル数 (個/枚)",
+                  "flatness_gbir": "平坦度 GBIR (µm)", "fe_conc_e9": "表面 Fe 濃度 (1e9 atoms/cm2)",
+                  "judgement": "判定 OK / NG"}
+    },
+    "maintenance_events": {
+      "description": "装置の保全記録 (定期保全・修理・消耗品交換)",
+      "columns": {"equipment_id": "装置 ID", "event_date": "実施日", "kind": "PM / repair / consumable",
+                  "description": "内容"}
+    },
+    "process_params": {
+      "description": "装置パラメータの日次記録 (縦持ち: param_name ごとに 1 行)",
+      "columns": {"equipment_id": "装置 ID", "run_date": "日付",
+                  "param_name": "chem_temp_c (洗浄の薬液温度 ℃) / megasonic_w / pad_pressure_kpa / slurry_flow_ml_min",
+                  "value": "値"}
+    },
+    "app_settings": {
+      "description": "アプリの設定 (デモ用。api_key 列は機密列として参照を断る)",
+      "columns": {"key": "設定名", "value": "値", "api_key": "機密 (参照不可)"}
+    }
+  }
+}

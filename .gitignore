@@ -1,0 +1,23 @@
+# 実行時のデータ (索引・状態 DB・コーパス・評価の記録・サンプル DB)
+data/
+# ただし評価結果の要約は docs/ に置く
+
+# 秘密情報
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# エディタ・OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
